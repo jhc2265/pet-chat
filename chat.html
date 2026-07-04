@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: 'Malgun Gothic', sans-serif; background: #fff5f7;
+    display: flex; flex-direction: column; height: 100vh;
+  }
+  #top { padding: 12px; background: #ff8fab; color: #fff; }
+  #status { font-size: 12px; min-height: 16px; }
+  .row { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+  input, button { font-size: 13px; padding: 7px; border-radius: 8px; border: 1px solid #ddd; }
+  button { background: #ff5d8f; color: #fff; border: none; cursor: pointer; }
+  button:hover { background: #e84c7d; }
+  button:disabled { background: #ffc0d0; cursor: default; }
+  #myCodeRow { font-size: 12px; }
+  #codeBox { font-weight: bold; font-size: 18px; letter-spacing: 3px; background: #fff; color: #ff5d8f; padding: 2px 8px; border-radius: 6px; }
+  #messages {
+    flex: 1; overflow-y: auto; padding: 12px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .msg { max-width: 75%; padding: 7px 11px; border-radius: 14px; font-size: 13px; word-break: break-word; }
+  .me   { align-self: flex-end;   background: #ff8fab; color: #fff; }
+  .them { align-self: flex-start; background: #fff; border: 1px solid #ffd0dc; color: #333; }
+  #inputRow { display: flex; gap: 6px; padding: 8px; border-top: 1px solid #ffd0dc; }
+  #text { flex: 1; }
+  #quitBtn { background: transparent; color: #fff; font-size: 11px; padding: 2px 6px; border: 1px solid #fff; }
+</style>
+</head>
+<body>
+  <div id="top">
+    <div class="row" style="justify-content: space-between; margin-top: 0;">
+      <div id="status">코드를 만들거나 상대 코드를 입력하세요</div>
+      <button id="quitBtn">종료</button>
+    </div>
+    <div class="row">
+      <button id="createBtn">코드 만들기</button>
+      <input id="joinInput" placeholder="상대 코드 입력" style="flex:1">
+      <button id="joinBtn">입장</button>
+    </div>
+    <div class="row" id="myCodeRow" style="display:none">
+      내 코드: <span id="codeBox"></span> &nbsp;(상대에게 알려주세요)
+    </div>
+    <div class="row" style="font-size:12px;">
+      <span>채팅 단축키:</span>
+      <span id="hotkeyLabel" style="font-weight:bold;">-</span>
+      <button id="hotkeyBtn" style="padding:3px 8px;">변경</button>
+    </div>
+  </div>
+
+  <div id="messages"></div>
+
+  <div id="inputRow">
+    <input id="text" placeholder="메시지 입력..." disabled>
+    <button id="sendBtn" disabled>전송</button>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const $ = (id) => document.getElementById(id);
+
+    $('createBtn').onclick = () => ipcRenderer.send('create-code');
+    $('joinBtn').onclick = () => {
+      const c = $('joinInput').value.trim();
+      if (c) ipcRenderer.send('join-code', c);
+    };
+    $('joinInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') $('joinBtn').click();
+    });
+    $('quitBtn').onclick = () => ipcRenderer.send('quit-app');
+
+    $('sendBtn').onclick = sendMsg;
+    $('text').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMsg(); });
+
+    function sendMsg() {
+      const t = $('text').value.trim();
+      if (!t) return;
+      ipcRenderer.send('send-chat', t);
+      $('text').value = '';
+    }
+
+    function addMsg(text, cls) {
+      const d = document.createElement('div');
+      d.className = 'msg ' + cls;
+      d.textContent = text;
+      $('messages').appendChild(d);
+      $('messages').scrollTop = $('messages').scrollHeight;
+    }
+
+    function enableChat(on) {
+      $('text').disabled = !on;
+      $('sendBtn').disabled = !on;
+      if (on) $('text').focus();
+    }
+
+    // 전역 단축키로 창이 뜨면 바로 입력할 수 있게 커서를 입력칸에 둠
+    ipcRenderer.on('focus-input', () => $('text').focus());
+
+    // ── 단축키 지정 ─────────────────────────────────────
+    let capturing = false;
+
+    // 눌린 키 조합을 Electron 단축키 문자열로 변환 (예: "Control+Shift+C")
+    function eventToAccelerator(e) {
+      const key = e.key;
+      if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) return null; // 조합키만 눌림 → 대기
+
+      const mods = [];
+      if (e.ctrlKey) mods.push('Control');
+      if (e.altKey) mods.push('Alt');
+      if (e.shiftKey) mods.push('Shift');
+      if (e.metaKey) mods.push('Super');
+
+      let k;
+      if (/^[a-zA-Z]$/.test(key)) k = key.toUpperCase();
+      else if (/^[0-9]$/.test(key)) k = key;
+      else if (/^F\d{1,2}$/.test(key)) k = key;
+      else {
+        const map = { ' ': 'Space', 'ArrowUp': 'Up', 'ArrowDown': 'Down',
+          'ArrowLeft': 'Left', 'ArrowRight': 'Right', 'Enter': 'Return',
+          'Tab': 'Tab', 'Home': 'Home', 'End': 'End',
+          'PageUp': 'PageUp', 'PageDown': 'PageDown' };
+        k = map[key];
+        if (!k) return { bad: '지원하지 않는 키예요' };
+      }
+
+      // F1~F12가 아니면 Ctrl/Alt/Shift 중 하나는 꼭 포함해야 함 (전역 단축키 권장)
+      if (mods.length === 0 && !/^F\d{1,2}$/.test(k))
+        return { bad: 'Ctrl / Alt / Shift 를 함께 눌러주세요' };
+
+      return { accel: [...mods, k].join('+') };
+    }
+
+    // 화면에 예쁘게 표시 (Control→Ctrl, Super→Win)
+    function pretty(accel) {
+      return accel ? accel.replace('Control', 'Ctrl').replace('Super', 'Win') : '(없음)';
+    }
+
+    function startCapture() {
+      capturing = true;
+      $('hotkeyLabel').textContent = '원하는 키를 누르세요...';
+      $('hotkeyBtn').textContent = '취소';
+    }
+    function endCapture() {
+      capturing = false;
+      $('hotkeyBtn').textContent = '변경';
+      ipcRenderer.send('get-hotkey'); // 라벨을 현재 단축키로 되돌림
+    }
+    $('hotkeyBtn').onclick = () => { capturing ? endCapture() : startCapture(); };
+
+    // capture 단계에서 먼저 가로채 처리
+    document.addEventListener('keydown', (e) => {
+      if (capturing) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.key === 'Escape') { endCapture(); return; }
+        const r = eventToAccelerator(e);
+        if (!r) return;                    // 조합키만 → 계속 대기
+        if (r.bad) { $('hotkeyLabel').textContent = r.bad; return; }
+        ipcRenderer.send('set-hotkey', r.accel);
+        capturing = false;
+        $('hotkeyBtn').textContent = '변경';
+        return;
+      }
+      if (e.key === 'Escape') ipcRenderer.send('hide-chat');
+    }, true);
+
+    // 본체에서 현재 단축키 상태를 알려줌
+    ipcRenderer.on('hotkey-status', (e, d) => {
+      $('hotkeyLabel').textContent = pretty(d.accel);
+      if (d.ok === false) $('hotkeyLabel').textContent = pretty(d.accel) + ' (그 키는 안 돼요 · 다른 조합으로)';
+    });
+
+    ipcRenderer.send('get-hotkey'); // 시작할 때 현재 단축키 표시
+
+    ipcRenderer.on('chat-out', (e, d) => addMsg(d.text, 'me'));
+    ipcRenderer.on('chat-in',  (e, d) => addMsg(d.text, 'them'));
+    ipcRenderer.on('status', (e, d) => {
+      if (d.code) {
+        $('myCodeRow').style.display = 'flex';
+        $('codeBox').textContent = d.code;
+      }
+      if (d.state === 'waiting')      $('status').textContent = '상대를 기다리는 중... 코드를 공유하세요';
+      if (d.state === 'connected')  { $('status').textContent = '✅ 연결됨! 대화해보세요'; enableChat(true); }
+      if (d.state === 'disconnected'){ $('status').textContent = '연결이 끊겼어요'; enableChat(false); }
+      if (d.state === 'error')        $('status').textContent = '오류: ' + (d.reason === 'full' ? '방이 꽉 찼어요' : d.reason);
+    });
+  </script>
+</body>
+</html>

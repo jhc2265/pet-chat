@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body {
+    margin: 0; height: 100%; background: transparent; overflow: hidden;
+    font-family: 'Malgun Gothic', sans-serif;
+    -webkit-user-select: none; user-select: none;
+  }
+  #wrap {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-end; height: 100%;
+  }
+  #bubble {
+    max-width: 150px; background: #fff; border: 2px solid #ffb3c6;
+    border-radius: 12px; padding: 6px 10px; font-size: 13px; color: #333;
+    margin-bottom: 8px; box-shadow: 0 2px 6px rgba(0,0,0,.2);
+    opacity: 0; transition: opacity .3s; word-break: break-word;
+    -webkit-app-region: no-drag;
+  }
+  #bubble.show { opacity: 1; }
+
+  /* 펫 본체(이미지 또는 기본 이모지). 드래그하면 창이 따라 움직임 */
+  #pet {
+    -webkit-app-region: drag; cursor: grab;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #petImg { max-width: 140px; max-height: 140px; display: none;
+            -webkit-user-drag: none; pointer-events: none; }
+  #petEmoji { font-size: 70px; line-height: 1; }
+  #pet.bounce { animation: bounce .5s; }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-14px); }
+  }
+
+  /* 마우스를 올렸을 때만 나타나는 작은 버튼들 */
+  #btns { display: flex; gap: 4px; margin-top: 4px; opacity: 0; transition: opacity .2s; }
+  #wrap:hover #btns { opacity: 1; }
+  #btns button {
+    -webkit-app-region: no-drag; cursor: pointer;
+    background: #ff8fab; color: #fff; border: none; border-radius: 10px;
+    font-size: 11px; padding: 4px 9px;
+  }
+  #btns button:hover { background: #ff5d8f; }
+</style>
+</head>
+<body>
+  <div id="wrap">
+    <div id="bubble"></div>
+    <div id="pet">
+      <img id="petImg">
+      <div id="petEmoji">🐥</div>
+    </div>
+    <div id="btns">
+      <button id="chatBtn">💬 채팅</button>
+      <button id="imgBtn">🖼️ 이미지</button>
+    </div>
+  </div>
+  <script>
+    const { ipcRenderer } = require('electron');
+    const bubble = document.getElementById('bubble');
+    const pet = document.getElementById('pet');
+    const petImg = document.getElementById('petImg');
+    const petEmoji = document.getElementById('petEmoji');
+    let hideTimer;
+
+    function say(text) {
+      bubble.textContent = text;
+      bubble.classList.add('show');
+      pet.classList.remove('bounce');
+      void pet.offsetWidth;
+      pet.classList.add('bounce');
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => bubble.classList.remove('show'), 5000);
+    }
+
+    // 저장돼 있던 펫 이미지를 받아서 표시 (없으면 기본 이모지)
+    ipcRenderer.on('set-pet-image', (e, d) => {
+      if (d && d.dataUrl) {
+        petImg.src = d.dataUrl;
+        petImg.style.display = 'block';
+        petEmoji.style.display = 'none';
+      } else {
+        petImg.style.display = 'none';
+        petEmoji.style.display = 'block';
+      }
+    });
+
+    ipcRenderer.on('chat-in', (e, d) => say(d.text));
+    ipcRenderer.on('status', (e, d) => {
+      if (d.state === 'connected') say('연결됐어! 🎉');
+    });
+
+    document.getElementById('chatBtn').onclick = () => ipcRenderer.send('toggle-chat');
+    document.getElementById('imgBtn').onclick = () => ipcRenderer.send('choose-pet-image');
+
+    // 창이 준비됐다고 알려서 저장된 이미지를 요청
+    ipcRenderer.send('pet-ready');
+  </script>
+</body>
+</html>
