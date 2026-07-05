@@ -1,5 +1,6 @@
 // 펫 채팅 서버
-// 역할: 같은 "코드"를 입력한 두 사람을 한 방(room)에 묶고, 서로의 메시지를 전달한다.
+// 역할: 같은 "코드"를 입력한 사람들을 한 방(room)에 묶고, 서로의 메시지를 전달한다.
+//       (여러 명 = 단체 채팅 지원, 각자 닉네임)
 // 실행: node server.js  (기본 포트 8080)
 
 const http = require('http');
@@ -18,6 +19,19 @@ const wss = new WebSocket.Server({ server });
 
 // code -> Set<socket>  : 코드별로 접속한 사람들
 const rooms = new Map();
+const MAX_PER_ROOM = 30; // 한 방 최대 인원 (안전장치)
+
+// 방의 현재 접속자(이름+상태) 목록을 모두에게 알림 (입장/퇴장 정보 포함)
+function broadcastRoster(room, extra) {
+  const members = [...room].map((s) => ({
+    name: s.nickname || '익명',
+    status: s.userStatus || ''
+  }));
+  const payload = JSON.stringify({ type: 'roster', members, ...extra });
+  room.forEach((s) => {
+    if (s.readyState === WebSocket.OPEN) s.send(payload);
+  });
+}
 
 wss.on('connection', (ws) => {
   ws.on('message', (raw) => {
@@ -32,33 +46,44 @@ wss.on('connection', (ws) => {
       if (!rooms.has(code)) rooms.set(code, new Set());
       const room = rooms.get(code);
 
-      // 한 방에는 두 명까지만
-      if (room.size >= 2) {
+      if (room.size >= MAX_PER_ROOM) {
         ws.send(JSON.stringify({ type: 'error', reason: 'full' }));
         return;
       }
 
       ws.roomCode = code;
+      ws.nickname = String(msg.nickname || '익명').slice(0, 20);
+      ws.userStatus = String(msg.status || '').slice(0, 20);
       room.add(ws);
-      ws.send(JSON.stringify({ type: 'joined', code }));
 
-      // 방에 두 명이 모이면 양쪽 모두에게 "연결됨" 알림
-      if (room.size === 2) {
-        room.forEach((peer) =>
-          peer.send(JSON.stringify({ type: 'peer-joined' }))
-        );
-      }
+      // 입장한 사람에게는 코드도 알려줌
+      ws.send(JSON.stringify({ type: 'joined', code }));
+      // 방 전체에 "누가 들어왔다 + 현재 명단" 알림
+      broadcastRoster(room, { joined: ws.nickname });
       return;
     }
 
-    // 채팅 메시지: 같은 방의 상대에게만 전달
+    // 상태 변경 (자리 비움 등) → 방 전체 명단 새로고침 + 누가 바꿨는지 알림
+    if (msg.type === 'status') {
+      ws.userStatus = String(msg.status || '').slice(0, 20);
+      const room = rooms.get(ws.roomCode);
+      if (room) broadcastRoster(room, {
+        statusChanged: { name: ws.nickname || '익명', status: ws.userStatus }
+      });
+      return;
+    }
+
+    // 채팅 메시지: 같은 방의 "나 빼고 전원"에게 전달 (보낸 사람 이름 포함)
     if (msg.type === 'chat') {
       const room = rooms.get(ws.roomCode);
       if (!room) return;
+      const out = JSON.stringify({
+        type: 'chat',
+        from: ws.nickname || '익명',
+        text: String(msg.text || '')
+      });
       room.forEach((peer) => {
-        if (peer !== ws && peer.readyState === WebSocket.OPEN) {
-          peer.send(JSON.stringify({ type: 'chat', text: String(msg.text || '') }));
-        }
+        if (peer !== ws && peer.readyState === WebSocket.OPEN) peer.send(out);
       });
     }
   });
@@ -67,8 +92,11 @@ wss.on('connection', (ws) => {
     const room = rooms.get(ws.roomCode);
     if (!room) return;
     room.delete(ws);
-    room.forEach((peer) => peer.send(JSON.stringify({ type: 'peer-left' })));
-    if (room.size === 0) rooms.delete(ws.roomCode);
+    if (room.size === 0) {
+      rooms.delete(ws.roomCode);
+    } else {
+      broadcastRoster(room, { left: ws.nickname || '익명' });
+    }
   });
 });
 

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: 'Pretendard';    src: url('fonts/Pretendard-Regular.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'Paperlogy';     src: url('fonts/Paperlogy-Regular.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'Freesentation'; src: url('fonts/Freesentation-Regular.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'NanumSquare';    src: url('fonts/NanumSquare-Regular.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'A2Z';            src: url('fonts/A2Z-Regular.ttf') format('truetype'); font-display: swap; }
+  html, body {
+    margin: 0; height: 100%; background: transparent; overflow: hidden;
+    font-family: var(--app-font, 'Malgun Gothic', sans-serif);
+    -webkit-user-select: none; user-select: none;
+  }
+  #wrap { padding: 8px 10px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  /* 안내 문구: 어두운 배경 알약이라 흰 바탕화면에서도 잘 보임. 입력바 위에 표시 */
+  #hint {
+    font-size: 11px; color: #fff; background: rgba(28,28,38,.94);
+    padding: 3px 12px; border-radius: 11px; box-shadow: 0 2px 8px rgba(0,0,0,.3);
+    opacity: 0; transition: opacity .2s; max-width: 100%;
+  }
+  #hint.show { opacity: 1; }
+  #bar {
+    width: 100%; display: flex; align-items: center; gap: 8px;
+    background: rgba(28,28,38,.94); border-radius: 22px;
+    padding: 8px 14px; box-shadow: 0 4px 16px rgba(0,0,0,.35);
+  }
+  #dot { width: 9px; height: 9px; border-radius: 50%; background: #888; flex: none; }
+  #dot.on { background: #37d67a; }
+  #q {
+    flex: 1; border: none; outline: none; background: transparent;
+    color: #fff; font-size: 14px;
+  }
+  #q::placeholder { color: #9aa; }
+</style>
+</head>
+<body>
+  <div id="wrap">
+    <div id="hint"></div>
+    <div id="bar">
+      <span id="dot" title="연결 상태"></span>
+      <input id="q" placeholder="메시지 입력  ·  Enter 전송  ·  Enter 두 번 또는 Esc로 닫기" maxlength="300">
+    </div>
+  </div>
+  <script>
+    const { ipcRenderer } = require('electron');
+    const q = document.getElementById('q');
+    const dot = document.getElementById('dot');
+    const hint = document.getElementById('hint');
+    let connected = false;
+    let justShown = 0;
+    let closeKey = 'Escape';        // 사용자가 지정한 닫기 키 (기본 Esc)
+    let capturingClose = false;
+
+    // 이벤트를 닫기키 문자열로 변환 (특수키 또는 Ctrl/Alt 조합만 허용)
+    function keyDescriptor(e) {
+      const key = e.key;
+      if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) return null;
+      const special = key === 'Escape' || /^F\d{1,2}$/.test(key) ||
+        ['Tab','Insert','Delete','Home','End','PageUp','PageDown',
+         'ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(key);
+      const mods = [];
+      if (e.ctrlKey) mods.push('Ctrl');
+      if (e.altKey) mods.push('Alt');
+      if (e.shiftKey) mods.push('Shift');
+      const base = key.length === 1 ? key.toUpperCase() : key;
+      if (mods.length === 0 && !special) return { plain: true };
+      return { desc: [...mods, base].join('+') };
+    }
+    function keyLabel(k) { return (!k || k === 'Escape') ? 'Esc' : k; }
+    function updatePlaceholder() {
+      q.placeholder = `메시지 입력  ·  Enter 전송  ·  Enter 두 번 또는 ${keyLabel(closeKey)}로 닫기`;
+    }
+    ipcRenderer.on('quick-close-key', (e, d) => { closeKey = d.key || 'Escape'; updatePlaceholder(); });
+    ipcRenderer.send('get-quick-close');
+
+    // 선택한 글꼴을 빠른 입력바에도 적용
+    const FONTS = {
+      pretendard: "'Pretendard',sans-serif", paperlogy: "'Paperlogy',sans-serif",
+      freesentation: "'Freesentation',sans-serif", nanumsquare: "'NanumSquare',sans-serif",
+      a2z: "'A2Z',sans-serif", malgun: "'Malgun Gothic',sans-serif",
+      gulim: "'Gulim',sans-serif", dotum: "'Dotum',sans-serif",
+      batang: "'Batang',serif", gungsuh: "'Gungsuh',serif", consolas: "'Consolas',monospace"
+    };
+    ipcRenderer.on('prefs', (e, p) => {
+      document.documentElement.style.setProperty('--app-font', FONTS[p.font] || FONTS.pretendard);
+    });
+    ipcRenderer.send('get-prefs');
+    ipcRenderer.on('start-quickclose-capture', () => {
+      capturingClose = true;
+      justShown = Date.now();
+      q.focus();
+      showHint('닫기로 쓸 키를 누르세요 (특수키 또는 Ctrl/Alt 조합)');
+    });
+
+    function showHint(text) {
+      hint.textContent = text;
+      hint.classList.add('show');
+      clearTimeout(showHint._t);
+      showHint._t = setTimeout(() => hint.classList.remove('show'), 1500);
+    }
+
+    ipcRenderer.on('focus-quick', () => {
+      justShown = Date.now();
+      q.focus(); q.select();
+    });
+
+    // 연결 상태 표시 (초록 = 연결됨)
+    ipcRenderer.on('roster', () => { connected = true; dot.classList.add('on'); });
+    ipcRenderer.on('status', (e, d) => {
+      if (d.state === 'disconnected') { connected = false; dot.classList.remove('on'); }
+    });
+
+    q.addEventListener('keydown', (e) => {
+      // 닫기 키 지정 모드: 다음 키를 받아서 저장
+      if (capturingClose) {
+        e.preventDefault(); e.stopPropagation();
+        const r = keyDescriptor(e);
+        if (!r) return;                        // 조합키 단독 → 대기
+        if (r.plain) { showHint('특수키나 Ctrl/Alt 조합을 눌러주세요'); return; }
+        capturingClose = false;
+        ipcRenderer.send('set-quick-close', r.desc);
+        showHint(`닫기 키: ${keyLabel(r.desc)}`);
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        const t = q.value.trim();
+        if (!t) { ipcRenderer.send('hide-quick'); return; } // 빈 상태에서 Enter → 닫기 (연속 Enter로 닫힘)
+        if (!connected) { showHint('먼저 채팅창(💬)에서 연결하세요'); return; }
+        ipcRenderer.send('send-chat', t);
+        q.value = '';
+        showHint('전송됨 ✓');
+        return;
+      }
+      if (e.key === 'Escape') { ipcRenderer.send('hide-quick'); return; } // Esc는 항상 닫기
+
+      // 사용자가 지정한 닫기 키와 일치하면 닫기
+      if (closeKey && closeKey !== 'Escape') {
+        const r = keyDescriptor(e);
+        if (r && r.desc === closeKey) { e.preventDefault(); ipcRenderer.send('hide-quick'); }
+      }
+    });
+
+    // 다른 곳 클릭하면 닫힘 (단, 막 떴을 땐 무시)
+    window.addEventListener('blur', () => {
+      if (Date.now() - justShown > 300) ipcRenderer.send('hide-quick');
+    });
+  </script>
+</body>
+</html>

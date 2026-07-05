@@ -3,50 +3,81 @@
 <head>
 <meta charset="utf-8">
 <style>
+  /* 앱에 포함된 예쁜 한글 폰트 (OFL 라이선스, 오프라인 동작) */
+  @font-face { font-family: 'Pretendard';     src: url('fonts/Pretendard-Regular.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'Paperlogy';      src: url('fonts/Paperlogy-Regular.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'Freesentation';  src: url('fonts/Freesentation-Regular.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'NanumSquare';     src: url('fonts/NanumSquare-Regular.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'A2Z';             src: url('fonts/A2Z-Regular.ttf') format('truetype'); font-display: swap; }
+  :root {
+    --bg: #fff5f7; --top: #ff8fab; --accent: #ff5d8f; --accent2: #e84c7d;
+    --me-bg: #ff8fab; --me-text: #fff;
+    --them-bg: #fff; --them-border: #ffd0dc; --them-text: #333;
+    --sys-bg: #ffe6ee; --sys-text: #b0367a; --name-text: #c76b8a;
+    --field-bg: #fff; --field-text: #333; --field-border: #ffd0dc;
+    --app-font: 'Malgun Gothic', sans-serif; --msg-size: 13px;
+  }
   * { box-sizing: border-box; }
   body {
-    margin: 0; font-family: 'Malgun Gothic', sans-serif; background: #fff5f7;
+    margin: 0; font-family: var(--app-font); background: var(--bg);
     display: flex; flex-direction: column; height: 100vh;
   }
-  #top { padding: 12px; background: #ff8fab; color: #fff; }
+  #top { padding: 12px; background: var(--top); color: #fff; }
   #status { font-size: 12px; min-height: 16px; }
-  .row { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
-  input, button { font-size: 13px; padding: 7px; border-radius: 8px; border: 1px solid #ddd; }
-  button { background: #ff5d8f; color: #fff; border: none; cursor: pointer; }
-  button:hover { background: #e84c7d; }
-  button:disabled { background: #ffc0d0; cursor: default; }
+  .row { display: flex; gap: 6px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
+  input, button {
+    font-family: inherit;  /* 선택한 글꼴을 입력창·버튼에도 적용 */
+    font-size: 13px; padding: 7px; border-radius: 8px;
+    border: 1px solid var(--field-border); background: var(--field-bg); color: var(--field-text);
+  }
+  button { background: var(--accent); color: #fff; border: none; cursor: pointer; }
+  button:hover { background: var(--accent2); }
+  button:disabled { opacity: .5; cursor: default; }
+  .chip { padding: 4px 9px; font-size: 12px; border-radius: 14px; }
   #myCodeRow { font-size: 12px; }
-  #codeBox { font-weight: bold; font-size: 18px; letter-spacing: 3px; background: #fff; color: #ff5d8f; padding: 2px 8px; border-radius: 6px; }
+  #codeBox { font-weight: bold; font-size: 18px; letter-spacing: 3px; background: #fff; color: var(--accent); padding: 2px 8px; border-radius: 6px; }
+  #nickBox { width: 100px; }
+  #statusCustom { width: 90px; }
   #messages {
     flex: 1; overflow-y: auto; padding: 12px;
     display: flex; flex-direction: column; gap: 6px;
   }
-  .msg { max-width: 75%; padding: 7px 11px; border-radius: 14px; font-size: 13px; word-break: break-word; }
-  .me   { align-self: flex-end;   background: #ff8fab; color: #fff; }
-  .them { align-self: flex-start; background: #fff; border: 1px solid #ffd0dc; color: #333; }
-  #inputRow { display: flex; gap: 6px; padding: 8px; border-top: 1px solid #ffd0dc; }
+  .msg { max-width: 75%; padding: 7px 11px; border-radius: 14px; font-size: var(--msg-size); word-break: break-word; }
+  .me   { align-self: flex-end;   background: var(--me-bg); color: var(--me-text); }
+  .them { align-self: flex-start; background: var(--them-bg); border: 1px solid var(--them-border); color: var(--them-text); }
+  .name { align-self: flex-start; font-size: 11px; color: var(--name-text); margin: 4px 0 -2px 4px; }
+  .sys  { align-self: center; font-size: 11px; color: var(--sys-text); background: var(--sys-bg); padding: 3px 10px; border-radius: 10px; }
+  #inputRow { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--them-border); background: var(--bg); }
   #text { flex: 1; }
-  #quitBtn { background: transparent; color: #fff; font-size: 11px; padding: 2px 6px; border: 1px solid #fff; }
 </style>
 </head>
 <body>
   <div id="top">
-    <div class="row" style="justify-content: space-between; margin-top: 0;">
-      <div id="status">코드를 만들거나 상대 코드를 입력하세요</div>
-      <button id="quitBtn">종료</button>
+    <div id="status">코드를 만들거나 상대 코드를 입력하세요</div>
+
+    <div class="row">
+      <span style="font-size:12px;">내 이름:</span>
+      <input id="nickBox" placeholder="닉네임" maxlength="20">
+      <span id="nickSaved" style="font-size:11px;"></span>
     </div>
+
     <div class="row">
       <button id="createBtn">코드 만들기</button>
       <input id="joinInput" placeholder="상대 코드 입력" style="flex:1">
       <button id="joinBtn">입장</button>
     </div>
+
     <div class="row" id="myCodeRow" style="display:none">
       내 코드: <span id="codeBox"></span> &nbsp;(상대에게 알려주세요)
     </div>
-    <div class="row" style="font-size:12px;">
-      <span>채팅 단축키:</span>
-      <span id="hotkeyLabel" style="font-weight:bold;">-</span>
-      <button id="hotkeyBtn" style="padding:3px 8px;">변경</button>
+
+    <div class="row">
+      <span style="font-size:12px;">상태:</span>
+      <button class="chip statusPreset" data-s="">💬 대화가능</button>
+      <button class="chip statusPreset" data-s="💤 자리비움">💤 자리비움</button>
+      <button class="chip statusPreset" data-s="🍚 밥먹자">🍚 밥먹자</button>
+      <button class="chip statusPreset" data-s="🎮 게임중">🎮 게임중</button>
+      <input id="statusCustom" placeholder="직접입력" maxlength="20">
     </div>
   </div>
 
@@ -61,57 +92,102 @@
     const { ipcRenderer } = require('electron');
     const $ = (id) => document.getElementById(id);
 
-    $('createBtn').onclick = () => ipcRenderer.send('create-code');
+    let myNick = '';
+
+    // ── 닉네임 ───────────────────────────────────────────
+    function saveNick() {
+      myNick = $('nickBox').value.trim() || '익명';
+      ipcRenderer.send('set-nickname', myNick);
+      $('nickSaved').textContent = '저장됨 ✓';
+      setTimeout(() => { $('nickSaved').textContent = ''; }, 1500);
+    }
+    $('nickBox').addEventListener('change', saveNick);
+    ipcRenderer.on('nickname', (e, d) => { $('nickBox').value = d.nickname || ''; myNick = d.nickname || ''; });
+    ipcRenderer.send('get-nickname');
+
+    // ── 상태 (자리비움 등) ───────────────────────────────
+    function setStatus(s) { ipcRenderer.send('set-status', s); }
+    document.querySelectorAll('.statusPreset').forEach((b) => { b.onclick = () => setStatus(b.dataset.s); });
+    $('statusCustom').addEventListener('change', () => setStatus($('statusCustom').value.trim()));
+
+    // ── 연결 ─────────────────────────────────────────────
+    $('createBtn').onclick = () => { saveNick(); ipcRenderer.send('create-code'); };
     $('joinBtn').onclick = () => {
       const c = $('joinInput').value.trim();
-      if (c) ipcRenderer.send('join-code', c);
+      if (c) { saveNick(); ipcRenderer.send('join-code', c); }
     };
-    $('joinInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') $('joinBtn').click();
-    });
-    $('quitBtn').onclick = () => ipcRenderer.send('quit-app');
+    $('joinInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('joinBtn').click(); });
 
+    // ── 메시지 전송/표시 ─────────────────────────────────
     $('sendBtn').onclick = sendMsg;
     $('text').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMsg(); });
-
     function sendMsg() {
       const t = $('text').value.trim();
       if (!t) return;
       ipcRenderer.send('send-chat', t);
       $('text').value = '';
     }
-
-    function addMsg(text, cls) {
+    function scrollDown() { $('messages').scrollTop = $('messages').scrollHeight; }
+    function addMsg(text, cls, from) {
+      if (cls === 'them' && from) {
+        const n = document.createElement('div');
+        n.className = 'name'; n.textContent = from;
+        $('messages').appendChild(n);
+      }
       const d = document.createElement('div');
-      d.className = 'msg ' + cls;
-      d.textContent = text;
-      $('messages').appendChild(d);
-      $('messages').scrollTop = $('messages').scrollHeight;
+      d.className = 'msg ' + cls; d.textContent = text;
+      $('messages').appendChild(d); scrollDown();
     }
-
+    function addSys(text) {
+      const d = document.createElement('div');
+      d.className = 'sys'; d.textContent = text;
+      $('messages').appendChild(d); scrollDown();
+    }
     function enableChat(on) {
-      $('text').disabled = !on;
-      $('sendBtn').disabled = !on;
+      $('text').disabled = !on; $('sendBtn').disabled = !on;
       if (on) $('text').focus();
     }
 
-    // 전역 단축키로 창이 뜨면 바로 입력할 수 있게 커서를 입력칸에 둠
+    // ── 꾸미기(테마/글꼴/크기) — 메뉴바에서 고르면 여기로 적용됨 ──
+    const THEMES = {
+      pink:   { '--bg':'#fff5f7','--top':'#ff8fab','--accent':'#ff5d8f','--accent2':'#e84c7d','--me-bg':'#ff8fab','--me-text':'#fff','--them-bg':'#ffffff','--them-border':'#ffd0dc','--them-text':'#333333','--sys-bg':'#ffe6ee','--sys-text':'#b0367a','--name-text':'#c76b8a','--field-bg':'#ffffff','--field-text':'#333333','--field-border':'#ffd0dc' },
+      dark:   { '--bg':'#23232b','--top':'#33333f','--accent':'#6c5ce7','--accent2':'#5646c4','--me-bg':'#6c5ce7','--me-text':'#ffffff','--them-bg':'#2f2f3a','--them-border':'#44444f','--them-text':'#eeeeee','--sys-bg':'#2f2f3a','--sys-text':'#aaaaaa','--name-text':'#b0a8ff','--field-bg':'#2f2f3a','--field-text':'#eeeeee','--field-border':'#44444f' },
+      blue:   { '--bg':'#eef4ff','--top':'#5b8def','--accent':'#3a6fd8','--accent2':'#2f5cbf','--me-bg':'#5b8def','--me-text':'#ffffff','--them-bg':'#ffffff','--them-border':'#cfe0ff','--them-text':'#223344','--sys-bg':'#e2ecff','--sys-text':'#3a6fd8','--name-text':'#5b8def','--field-bg':'#ffffff','--field-text':'#223344','--field-border':'#cfe0ff' },
+      mint:   { '--bg':'#effaf5','--top':'#34c896','--accent':'#1fae82','--accent2':'#189670','--me-bg':'#34c896','--me-text':'#ffffff','--them-bg':'#ffffff','--them-border':'#c6efe0','--them-text':'#224437','--sys-bg':'#dff5ec','--sys-text':'#1fae82','--name-text':'#1fae82','--field-bg':'#ffffff','--field-text':'#224437','--field-border':'#c6efe0' },
+      yellow: { '--bg':'#fffdf0','--top':'#ffcf5c','--accent':'#e0a400','--accent2':'#c68f00','--me-bg':'#ffcf5c','--me-text':'#5a4500','--them-bg':'#ffffff','--them-border':'#ffe9ad','--them-text':'#4a3f1a','--sys-bg':'#fff4d1','--sys-text':'#b58600','--name-text':'#b58600','--field-bg':'#ffffff','--field-text':'#4a3f1a','--field-border':'#ffe9ad' }
+    };
+    const FONTS = {
+      pretendard: "'Pretendard', sans-serif", paperlogy: "'Paperlogy', sans-serif",
+      freesentation: "'Freesentation', sans-serif", nanumsquare: "'NanumSquare', sans-serif",
+      a2z: "'A2Z', sans-serif",
+      malgun: "'Malgun Gothic', sans-serif", gulim: "'Gulim', sans-serif",
+      dotum: "'Dotum', sans-serif", batang: "'Batang', serif",
+      gungsuh: "'Gungsuh', serif", consolas: "'Consolas', monospace"
+    };
+    const SIZES = { small: '12px', medium: '13px', large: '15px' };
+    function applyPrefs(p) {
+      const vars = THEMES[p.theme] || THEMES.pink;
+      for (const [k, v] of Object.entries(vars)) document.documentElement.style.setProperty(k, v);
+      document.documentElement.style.setProperty('--app-font', FONTS[p.font] || FONTS.malgun);
+      document.documentElement.style.setProperty('--msg-size', SIZES[p.size] || SIZES.medium);
+    }
+    ipcRenderer.on('prefs', (e, p) => applyPrefs(p));
+    ipcRenderer.send('get-prefs');
+
+    // ── 전역 단축키로 창이 뜨면 입력칸에 커서 ─────────────
     ipcRenderer.on('focus-input', () => $('text').focus());
 
-    // ── 단축키 지정 ─────────────────────────────────────
+    // ── 단축키 지정 (메뉴 → '단축키 변경'에서 시작됨) ─────
     let capturing = false;
-
-    // 눌린 키 조합을 Electron 단축키 문자열로 변환 (예: "Control+Shift+C")
+    let prevStatus = '';
     function eventToAccelerator(e) {
       const key = e.key;
-      if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) return null; // 조합키만 눌림 → 대기
-
+      if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) return null;
       const mods = [];
       if (e.ctrlKey) mods.push('Control');
       if (e.altKey) mods.push('Alt');
       if (e.shiftKey) mods.push('Shift');
       if (e.metaKey) mods.push('Super');
-
       let k;
       if (/^[a-zA-Z]$/.test(key)) k = key.toUpperCase();
       else if (/^[0-9]$/.test(key)) k = key;
@@ -119,72 +195,56 @@
       else {
         const map = { ' ': 'Space', 'ArrowUp': 'Up', 'ArrowDown': 'Down',
           'ArrowLeft': 'Left', 'ArrowRight': 'Right', 'Enter': 'Return',
-          'Tab': 'Tab', 'Home': 'Home', 'End': 'End',
-          'PageUp': 'PageUp', 'PageDown': 'PageDown' };
+          'Tab': 'Tab', 'Home': 'Home', 'End': 'End', 'PageUp': 'PageUp', 'PageDown': 'PageDown' };
         k = map[key];
         if (!k) return { bad: '지원하지 않는 키예요' };
       }
-
-      // F1~F12가 아니면 Ctrl/Alt/Shift 중 하나는 꼭 포함해야 함 (전역 단축키 권장)
-      if (mods.length === 0 && !/^F\d{1,2}$/.test(k))
-        return { bad: 'Ctrl / Alt / Shift 를 함께 눌러주세요' };
-
+      if (mods.length === 0 && !/^F\d{1,2}$/.test(k)) return { bad: 'Ctrl / Alt / Shift 를 함께 눌러주세요' };
       return { accel: [...mods, k].join('+') };
     }
-
-    // 화면에 예쁘게 표시 (Control→Ctrl, Super→Win)
-    function pretty(accel) {
-      return accel ? accel.replace('Control', 'Ctrl').replace('Super', 'Win') : '(없음)';
-    }
-
-    function startCapture() {
+    ipcRenderer.on('start-hotkey-capture', () => {
       capturing = true;
-      $('hotkeyLabel').textContent = '원하는 키를 누르세요...';
-      $('hotkeyBtn').textContent = '취소';
-    }
-    function endCapture() {
-      capturing = false;
-      $('hotkeyBtn').textContent = '변경';
-      ipcRenderer.send('get-hotkey'); // 라벨을 현재 단축키로 되돌림
-    }
-    $('hotkeyBtn').onclick = () => { capturing ? endCapture() : startCapture(); };
-
-    // capture 단계에서 먼저 가로채 처리
+      prevStatus = $('status').textContent;
+      $('status').textContent = '⌨️ 원하는 키를 누르세요... (Esc 취소)';
+    });
     document.addEventListener('keydown', (e) => {
       if (capturing) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.key === 'Escape') { endCapture(); return; }
+        e.preventDefault(); e.stopPropagation();
+        if (e.key === 'Escape') { capturing = false; $('status').textContent = prevStatus; return; }
         const r = eventToAccelerator(e);
-        if (!r) return;                    // 조합키만 → 계속 대기
-        if (r.bad) { $('hotkeyLabel').textContent = r.bad; return; }
+        if (!r) return;
+        if (r.bad) { $('status').textContent = '⌨️ ' + r.bad; return; }
         ipcRenderer.send('set-hotkey', r.accel);
         capturing = false;
-        $('hotkeyBtn').textContent = '변경';
         return;
       }
       if (e.key === 'Escape') ipcRenderer.send('hide-chat');
     }, true);
-
-    // 본체에서 현재 단축키 상태를 알려줌
     ipcRenderer.on('hotkey-status', (e, d) => {
-      $('hotkeyLabel').textContent = pretty(d.accel);
-      if (d.ok === false) $('hotkeyLabel').textContent = pretty(d.accel) + ' (그 키는 안 돼요 · 다른 조합으로)';
+      const pretty = d.accel ? d.accel.replace('Control', 'Ctrl').replace('Super', 'Win') : '(없음)';
+      $('status').textContent = d.ok === false
+        ? `그 키는 안 돼요 · 다른 조합으로 (지금: ${pretty})`
+        : `✅ 단축키가 ${pretty} 로 바뀌었어요`;
     });
 
-    ipcRenderer.send('get-hotkey'); // 시작할 때 현재 단축키 표시
-
+    // ── 서버로부터 받는 것들 ─────────────────────────────
     ipcRenderer.on('chat-out', (e, d) => addMsg(d.text, 'me'));
-    ipcRenderer.on('chat-in',  (e, d) => addMsg(d.text, 'them'));
+    ipcRenderer.on('chat-in',  (e, d) => addMsg(d.text, 'them', d.from));
+
+    ipcRenderer.on('roster', (e, d) => {
+      const n = d.members.length;
+      const list = d.members.map((m) => m.name + (m.status ? ' ' + m.status : '')).join(', ');
+      $('status').textContent = `🟢 접속 ${n}명: ${list}`;
+      enableChat(true);
+      if (d.joined && d.joined !== myNick) addSys(`${d.joined}님이 들어왔어요 🎉`);
+      if (d.left) addSys(`${d.left}님이 나갔어요 👋`);
+    });
+
     ipcRenderer.on('status', (e, d) => {
-      if (d.code) {
-        $('myCodeRow').style.display = 'flex';
-        $('codeBox').textContent = d.code;
-      }
-      if (d.state === 'waiting')      $('status').textContent = '상대를 기다리는 중... 코드를 공유하세요';
-      if (d.state === 'connected')  { $('status').textContent = '✅ 연결됨! 대화해보세요'; enableChat(true); }
-      if (d.state === 'disconnected'){ $('status').textContent = '연결이 끊겼어요'; enableChat(false); }
-      if (d.state === 'error')        $('status').textContent = '오류: ' + (d.reason === 'full' ? '방이 꽉 찼어요' : d.reason);
+      if (d.code) { $('myCodeRow').style.display = 'flex'; $('codeBox').textContent = d.code; }
+      if (d.state === 'joined')        $('status').textContent = '입장! 코드를 공유하고 친구를 기다리세요';
+      if (d.state === 'disconnected') { $('status').textContent = '연결이 끊겼어요'; enableChat(false); }
+      if (d.state === 'error')         $('status').textContent = '오류: ' + (d.reason === 'full' ? '방이 꽉 찼어요(최대 30명)' : d.reason);
     });
   </script>
 </body>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Malgun Gothic', sans-serif; background: #fff5f7; padding: 14px; color: #333; }
+  h3 { margin: 0 0 10px; font-size: 15px; color: #ff5d8f; }
+  #grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .char {
+    font-size: 34px; text-align: center; padding: 8px 0; cursor: pointer;
+    background: #fff; border: 2px solid #ffd0dc; border-radius: 12px;
+  }
+  .char:hover { border-color: #ff5d8f; background: #fff0f5; }
+  hr { border: none; border-top: 1px solid #ffd0dc; margin: 14px 0; }
+  #fileBtn {
+    width: 100%; font-size: 13px; padding: 10px; border: none; border-radius: 10px;
+    background: #ff5d8f; color: #fff; cursor: pointer;
+  }
+  #fileBtn:hover { background: #e84c7d; }
+  .hint { font-size: 11px; color: #b07; margin-top: 8px; text-align: center; }
+</style>
+</head>
+<body>
+  <h3>🐾 기본 캐릭터 고르기</h3>
+  <div id="grid"></div>
+  <hr>
+  <button id="fileBtn">📁 내 컴퓨터에서 이미지 선택 (PNG·GIF)</button>
+  <div class="hint">기본 캐릭터를 고르면 커스텀 이미지가 해제돼요</div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const CHARS = ['🐥','🐤','🐱','🐶','🐻','🐰','🐧','🐸','🦊','🐹','🐨','🐯'];
+    const grid = document.getElementById('grid');
+    CHARS.forEach((c) => {
+      const d = document.createElement('div');
+      d.className = 'char';
+      d.textContent = c;
+      d.onclick = () => ipcRenderer.send('set-default-char', c);
+      grid.appendChild(d);
+    });
+    document.getElementById('fileBtn').onclick = () => ipcRenderer.send('choose-pet-image');
+  </script>
+</body>
+</html>

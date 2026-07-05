@@ -3,9 +3,14 @@
 <head>
 <meta charset="utf-8">
 <style>
+  @font-face { font-family: 'Pretendard';    src: url('fonts/Pretendard-Regular.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'Paperlogy';     src: url('fonts/Paperlogy-Regular.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'Freesentation'; src: url('fonts/Freesentation-Regular.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'NanumSquare';    src: url('fonts/NanumSquare-Regular.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'A2Z';            src: url('fonts/A2Z-Regular.ttf') format('truetype'); font-display: swap; }
   html, body {
     margin: 0; height: 100%; background: transparent; overflow: hidden;
-    font-family: 'Malgun Gothic', sans-serif;
+    font-family: var(--app-font, 'Malgun Gothic', sans-serif);
     -webkit-user-select: none; user-select: none;
   }
   #wrap {
@@ -13,15 +18,15 @@
     align-items: center; justify-content: flex-end; height: 100%;
   }
   #bubble {
-    max-width: 150px; background: #fff; border: 2px solid #ffb3c6;
-    border-radius: 12px; padding: 6px 10px; font-size: 13px; color: #333;
+    max-width: 150px; background: var(--pet-bubble-bg, #fff); border: 2px solid var(--pet-border, #ffb3c6);
+    border-radius: 12px; padding: 6px 10px; font-size: 13px; color: var(--pet-text, #333);
     margin-bottom: 8px; box-shadow: 0 2px 6px rgba(0,0,0,.2);
     opacity: 0; transition: opacity .3s; word-break: break-word;
     -webkit-app-region: no-drag;
   }
   #bubble.show { opacity: 1; }
 
-  /* 펫 본체(이미지 또는 기본 이모지). 드래그하면 창이 따라 움직임 */
+  /* 펫 본체(이미지 또는 기본 이모지). 윈도우 기본 드래그로 부드럽게 이동 */
   #pet {
     -webkit-app-region: drag; cursor: grab;
     display: flex; align-items: center; justify-content: center;
@@ -40,10 +45,20 @@
   #wrap:hover #btns { opacity: 1; }
   #btns button {
     -webkit-app-region: no-drag; cursor: pointer;
-    background: #ff8fab; color: #fff; border: none; border-radius: 10px;
+    background: var(--pet-accent, #ff8fab); color: #fff; border: none; border-radius: 10px;
     font-size: 11px; padding: 4px 9px;
   }
-  #btns button:hover { background: #ff5d8f; }
+  #btns button:hover { background: var(--pet-accent2, #ff5d8f); }
+
+  /* 펫 아래 상태 뱃지 (자리비움 등) */
+  #statusBadge {
+    -webkit-app-region: no-drag; max-width: 170px; margin-top: 4px;
+    font-size: 11px; color: var(--pet-sys, #b0367a); background: var(--pet-badge-bg, rgba(255,255,255,.92));
+    border: 1px solid var(--pet-badge-border, #ffd0dc); border-radius: 10px; padding: 2px 9px;
+    text-align: center; display: none; word-break: break-word; line-height: 1.4;
+    box-shadow: 0 1px 4px rgba(0,0,0,.15);
+  }
+  #statusBadge .nm { font-weight: bold; color: var(--pet-name, #ff5d8f); }
 </style>
 </head>
 <body>
@@ -53,9 +68,10 @@
       <img id="petImg">
       <div id="petEmoji">🐥</div>
     </div>
+    <div id="statusBadge"></div>
     <div id="btns">
       <button id="chatBtn">💬 채팅</button>
-      <button id="imgBtn">🖼️ 이미지</button>
+      <button id="imgBtn">🖼️ 캐릭터</button>
     </div>
   </div>
   <script>
@@ -64,6 +80,7 @@
     const pet = document.getElementById('pet');
     const petImg = document.getElementById('petImg');
     const petEmoji = document.getElementById('petEmoji');
+    const badge = document.getElementById('statusBadge');
     let hideTimer;
 
     function say(text) {
@@ -76,25 +93,86 @@
       hideTimer = setTimeout(() => bubble.classList.remove('show'), 5000);
     }
 
-    // 저장돼 있던 펫 이미지를 받아서 표시 (없으면 기본 이모지)
+    // 사용자가 고른 이미지를 펫으로 표시
     ipcRenderer.on('set-pet-image', (e, d) => {
       if (d && d.dataUrl) {
         petImg.src = d.dataUrl;
         petImg.style.display = 'block';
         petEmoji.style.display = 'none';
-      } else {
-        petImg.style.display = 'none';
-        petEmoji.style.display = 'block';
       }
     });
 
-    ipcRenderer.on('chat-in', (e, d) => say(d.text));
-    ipcRenderer.on('status', (e, d) => {
-      if (d.state === 'connected') say('연결됐어! 🎉');
+    // 기본 캐릭터(이모지)를 펫으로 표시
+    ipcRenderer.on('set-pet-char', (e, d) => {
+      petEmoji.textContent = d.char || '🐥';
+      petImg.style.display = 'none';
+      petEmoji.style.display = 'block';
+    });
+
+    ipcRenderer.on('chat-in', (e, d) => say(d.from ? `${d.from}: ${d.text}` : d.text));
+
+    // 상태 변경을 말풍선으로 (내가 누른 상태 / 상대의 상태 변경)
+    ipcRenderer.on('pet-say', (e, d) => say(d.text));
+
+    // 선택한 글꼴 + 테마 색을 펫(말풍선·이름표·버튼)에도 적용
+    const FONTS = {
+      pretendard: "'Pretendard',sans-serif", paperlogy: "'Paperlogy',sans-serif",
+      freesentation: "'Freesentation',sans-serif", nanumsquare: "'NanumSquare',sans-serif",
+      a2z: "'A2Z',sans-serif", malgun: "'Malgun Gothic',sans-serif",
+      gulim: "'Gulim',sans-serif", dotum: "'Dotum',sans-serif",
+      batang: "'Batang',serif", gungsuh: "'Gungsuh',serif", consolas: "'Consolas',monospace"
+    };
+    const THEMES = {
+      pink:   { accent:'#ff5d8f', accent2:'#e84c7d', border:'#ffb3c6', badgeBorder:'#ffd0dc', bubbleBg:'#ffffff', badgeBg:'#ffffff', text:'#333333', sys:'#b0367a', name:'#ff5d8f' },
+      dark:   { accent:'#6c5ce7', accent2:'#5646c4', border:'#44444f', badgeBorder:'#44444f', bubbleBg:'#2f2f3a', badgeBg:'#2f2f3a', text:'#eeeeee', sys:'#cfcfe0', name:'#b0a8ff' },
+      blue:   { accent:'#3a6fd8', accent2:'#2f5cbf', border:'#cfe0ff', badgeBorder:'#cfe0ff', bubbleBg:'#ffffff', badgeBg:'#ffffff', text:'#223344', sys:'#3a6fd8', name:'#3a6fd8' },
+      mint:   { accent:'#1fae82', accent2:'#189670', border:'#c6efe0', badgeBorder:'#c6efe0', bubbleBg:'#ffffff', badgeBg:'#ffffff', text:'#224437', sys:'#1fae82', name:'#1fae82' },
+      yellow: { accent:'#e0a400', accent2:'#c68f00', border:'#ffe9ad', badgeBorder:'#ffe9ad', bubbleBg:'#ffffff', badgeBg:'#fffdf0', text:'#4a3f1a', sys:'#b58600', name:'#b58600' }
+    };
+    ipcRenderer.on('prefs', (e, p) => {
+      const root = document.documentElement.style;
+      root.setProperty('--app-font', FONTS[p.font] || FONTS.pretendard);
+      const t = THEMES[p.theme] || THEMES.pink;
+      root.setProperty('--pet-accent', t.accent);
+      root.setProperty('--pet-accent2', t.accent2);
+      root.setProperty('--pet-border', t.border);
+      root.setProperty('--pet-badge-border', t.badgeBorder);
+      root.setProperty('--pet-bubble-bg', t.bubbleBg);
+      root.setProperty('--pet-badge-bg', t.badgeBg);
+      root.setProperty('--pet-text', t.text);
+      root.setProperty('--pet-sys', t.sys);
+      root.setProperty('--pet-name', t.name);
+    });
+    ipcRenderer.send('get-prefs');
+
+    // 펫 아래 이름표: 내 이름 (+ 상태가 있으면 함께)
+    ipcRenderer.on('my-info', (e, d) => {
+      badge.textContent = '';
+      const name = (d.nickname || '').trim();
+      const status = (d.status || '').trim();
+      if (!name && !status) { badge.style.display = 'none'; return; }
+      if (name) {
+        const n = document.createElement('span');
+        n.className = 'nm';
+        n.textContent = name;
+        badge.appendChild(n);
+      }
+      if (status) {
+        if (name) badge.appendChild(document.createTextNode('  '));
+        badge.appendChild(document.createTextNode(status));
+      }
+      badge.style.display = 'block';
     });
 
     document.getElementById('chatBtn').onclick = () => ipcRenderer.send('toggle-chat');
-    document.getElementById('imgBtn').onclick = () => ipcRenderer.send('choose-pet-image');
+    document.getElementById('imgBtn').onclick = () => ipcRenderer.send('open-picker');
+
+    // 버튼·이름표 등 드래그 아닌 영역에서 오른쪽 클릭 → 메뉴
+    // (펫 본체는 드래그 영역이라 아래 main의 system-context-menu가 처리)
+    window.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      ipcRenderer.send('show-pet-menu');
+    });
 
     // 창이 준비됐다고 알려서 저장된 이미지를 요청
     ipcRenderer.send('pet-ready');
