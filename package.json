@@ -1,6 +1,6 @@
 {
   "name": "pet-chat",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "상대방의 펫을 내 바탕화면에 띄우고 대화하는 데스크톱 프로그램",
   "main": "main.js",
   "scripts": {

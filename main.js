@@ -275,11 +275,22 @@ function createWindows() {
   });
 }
 
-app.whenReady().then(() => {
-  createWindows();
-  registerHotkey(readSettings().hotkey || 'Control+Shift+C');
-  buildMenu();
-});
+// 단일 실행 잠금: 이미 실행 중이면 새 창을 띄우지 않고 종료 (펫이 2개 뜨는 것 방지)
+const gotSingleLock = app.requestSingleInstanceLock();
+if (!gotSingleLock) {
+  app.quit();
+} else {
+  // 이미 켜져 있는데 또 실행하면 → 새로 안 띄우고 기존 펫을 보여줌
+  app.on('second-instance', () => {
+    if (petWindow) { if (petWindow.isMinimized()) petWindow.restore(); petWindow.show(); }
+  });
+
+  app.whenReady().then(() => {
+    createWindows();
+    registerHotkey(readSettings().hotkey || 'Control+Shift+C');
+    buildMenu();
+  });
+}
 
 app.on('will-quit', () => globalShortcut.unregisterAll());
 
